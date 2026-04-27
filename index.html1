@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>جمعية إنجاد</title>
+
+<style>
+body{font-family:Tahoma;background:#f1f5f9;margin:0}
+.container{padding:20px}
+.card{background:white;padding:16px;border-radius:16px;margin-bottom:12px}
+input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc}
+button{padding:10px 14px;border:none;border-radius:8px;cursor:pointer}
+.primary{background:#0ea5e9;color:white}
+.header{display:flex;justify-content:space-between;align-items:center}
+</style>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCjJKdqU6IMzE4kFcxb-E5Z0mqxlncUVRQ",
+  authDomain: "enjad-emergence.firebaseapp.com",
+  projectId: "enjad-emergence",
+  storageBucket: "enjad-emergence.firebasestorage.app",
+  messagingSenderId: "328879103448",
+  appId: "1:328879103448:web:5bab51ce79050ee3faa6ad"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+let currentUserData = null;
+
+// تسجيل دخول
+window.loginUser = async () => {
+  const memberId = document.getElementById("memberId").value;
+  const password = document.getElementById("password").value;
+  const email = memberId + "@enjad.com";
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    await loadUserData(memberId);
+
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("app").style.display = "block";
+
+    loadData();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+// إنشاء حساب
+window.registerUser = async () => {
+  const memberId = document.getElementById("memberId").value;
+  const password = document.getElementById("password").value;
+  const email = memberId + "@enjad.com";
+
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+    alert("تم إنشاء الحساب");
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+// تحميل بيانات المستخدم
+async function loadUserData(memberId){
+  const q = query(collection(db, "users"), where("memberId", "==", memberId));
+  const snapshot = await getDocs(q);
+
+  if(snapshot.empty){
+    alert("⚠️ أضف بيانات المستخدم في Firestore (collection: users)");
+    return;
+  }
+
+  snapshot.forEach(doc=>{
+    currentUserData = doc.data();
+  });
+
+  document.getElementById("userName").innerText =
+    currentUserData.name + " - " + currentUserData.role;
+}
+
+// حفظ بلاغ
+window.addIncident = async () => {
+  const type = document.getElementById("type").value;
+  const notes = document.getElementById("notes").value;
+
+  await addDoc(collection(db, "incidents"), {
+    type,
+    notes,
+    user: currentUserData?.name || "غير معروف",
+    time: new Date().toLocaleString()
+  });
+
+  alert("تم حفظ البلاغ");
+  loadData();
+};
+
+// عرض البلاغات
+window.loadData = async () => {
+  const querySnapshot = await getDocs(collection(db, "incidents"));
+  let html = "";
+
+  querySnapshot.forEach(doc => {
+    const d = doc.data();
+    html += `<div class="card">
+      <b>${d.type}</b><br>
+      ${d.notes}<br>
+      👤 ${d.user}<br>
+      <small>${d.time}</small>
+    </div>`;
+  });
+
+  document.getElementById("list").innerHTML = html;
+};
+</script>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- تسجيل الدخول -->
+<div id="loginBox" class="card">
+  <h3>تسجيل الدخول</h3>
+
+  <label>رقم العضوية</label>
+  <input id="memberId">
+
+  <label>كلمة المرور</label>
+  <input id="password" type="password">
+
+  <br><br>
+  <button onclick="loginUser()" class="primary">دخول</button>
+  <button onclick="registerUser()">إنشاء حساب</button>
+</div>
+
+<!-- التطبيق -->
+<div id="app" style="display:none">
+
+<div class="header">
+  <h3 id="userName"></h3>
+</div>
+
+<h2>🚑 تسجيل حالة</h2>
+
+<div class="card">
+<label>نوع الحالة</label>
+<select id="type">
+<option>إجهاد حراري</option>
+<option>إغماء</option>
+<option>إصابة</option>
+<option>حالة قلبية</option>
+</select>
+
+<label>وصف الحالة</label>
+<textarea id="notes"></textarea>
+
+<br><br>
+<button class="primary" onclick="addIncident()">حفظ البلاغ</button>
+</div>
+
+<h3>📋 البلاغات</h3>
+<div id="list"></div>
+
+</div>
+
+</div>
+
+</body>
+</html>
